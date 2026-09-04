@@ -1,0 +1,12 @@
+[project]
+name = "rgb-panel"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "openrgb-python>=0.3.6",
+    "pillow>=12.3.0",
+    "pyinstaller>=6.22.2",
+    "pywebview>=6.2.1",
+]

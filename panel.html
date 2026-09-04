@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RGB Panel</title>
+<style>
+  :root {
+    --bg:#0b0d12; --bg2:#10131a; --card:#151922; --card2:#1a1f2a; --line:#252b38; --line2:#323a4a;
+    --fg:#e8eaf0; --muted:#8d95a7; --accent:#6d8cff; --ok:#3ddc97; --warn:#ffb648; --bad:#ff6b6b;
+    --radius:14px; --shadow:0 10px 30px rgba(0,0,0,.35);
+  }
+  * { box-sizing:border-box; }
+  html, body { height:100%; }
+  body { margin:0; background:radial-gradient(1200px 600px at 20% -10%, #1a2140 0%, var(--bg) 55%) fixed, var(--bg); color:var(--fg);
+         font:14px/1.45 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; -webkit-font-smoothing:antialiased; }
+  ::selection { background:var(--accent); color:#fff; }
+  header { position:sticky; top:0; z-index:3; backdrop-filter:blur(14px); background:rgba(11,13,18,.82);
+           border-bottom:1px solid var(--line); padding:12px 22px; display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
+  .brand { display:flex; align-items:center; gap:10px; margin-right:6px; }
+  .brand .ring { width:26px; height:26px; border-radius:50%; background:conic-gradient(#ff3b3b,#ffb648,#3ddc97,#4cc9f0,#6d8cff,#c77dff,#ff3b3b);
+                 -webkit-mask:radial-gradient(circle, transparent 42%, #000 46%); mask:radial-gradient(circle, transparent 42%, #000 46%); }
+  .brand .ring.spin { animation:spin 3s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .brand h1 { font-size:17px; font-weight:600; margin:0; letter-spacing:.2px; }
+  .group { display:flex; align-items:center; gap:8px; padding:6px 10px; background:var(--card); border:1px solid var(--line); border-radius:12px; }
+  .group .lbl { color:var(--muted); font-size:12px; margin-right:2px; }
+  .swatches { display:flex; gap:6px; }
+  .swatch { width:22px; height:22px; border-radius:50%; border:2px solid transparent; cursor:pointer; transition:transform .12s, border-color .12s; box-shadow:inset 0 0 0 1px rgba(0,0,0,.35); }
+  .swatch:hover { transform:scale(1.18); border-color:#fff; }
+  input[type=color] { width:38px; height:30px; border:1px solid var(--line2); border-radius:8px; background:none; padding:0; cursor:pointer; }
+  input[type=color]::-webkit-color-swatch-wrapper { padding:3px; }
+  input[type=color]::-webkit-color-swatch { border:none; border-radius:5px; }
+  input[type=text], input[type=number], select { font:inherit; color:var(--fg); background:var(--bg2); border:1px solid var(--line2); border-radius:8px; padding:6px 9px; outline:none; }
+  input:focus, select:focus { border-color:var(--accent); }
+  input[type=number] { width:64px; }
+  button { font:inherit; color:var(--fg); background:var(--card2); border:1px solid var(--line2); border-radius:9px; padding:6px 12px; cursor:pointer; transition:background .12s, border-color .12s, transform .06s; }
+  button:hover { border-color:var(--accent); background:#222838; }
+  button:active { transform:translateY(1px); }
+  button.primary { background:linear-gradient(135deg, #6d8cff, #8a6dff); border-color:transparent; color:#fff; font-weight:600; }
+  button.primary:hover { filter:brightness(1.08); }
+  button.ghost { background:transparent; }
+  .status { margin-left:auto; display:flex; align-items:center; gap:8px; color:var(--muted); font-size:12.5px; }
+  .dot { width:9px; height:9px; border-radius:50%; background:var(--muted); box-shadow:0 0 0 3px rgba(255,255,255,.04); }
+  .dot.ok { background:var(--ok); box-shadow:0 0 10px rgba(61,220,151,.6); }
+  .dot.warn { background:var(--warn); box-shadow:0 0 10px rgba(255,182,72,.6); }
+  .dot.bad { background:var(--bad); box-shadow:0 0 10px rgba(255,107,107,.6); }
+  .dot.busy { background:var(--accent); animation:pulse .6s ease-in-out infinite alternate; }
+  @keyframes pulse { to { opacity:.35; } }
+
+  section.effects { padding:18px 22px 0; }
+  .fx-head { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:10px; }
+  .fx-head h2 { margin:0; font-size:14px; font-weight:600; letter-spacing:.4px; text-transform:uppercase; color:var(--muted); }
+  .fx-head .sliders { display:flex; gap:16px; align-items:center; margin-left:auto; }
+  .fx-head label { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted); }
+  .fx-head input[type=range] { width:140px; }
+  .fx-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:10px; }
+  .fx { position:relative; padding:12px 12px 10px; border-radius:12px; border:1px solid var(--line); background:var(--card); cursor:pointer; overflow:hidden;
+        transition:transform .12s, border-color .12s, box-shadow .12s; }
+  .fx:hover { transform:translateY(-2px); border-color:var(--line2); box-shadow:var(--shadow); }
+  .fx.active { border-color:var(--accent); box-shadow:0 0 0 2px rgba(109,140,255,.35), var(--shadow); }
+  .fx .bar { height:6px; border-radius:3px; margin-bottom:9px; background-image:linear-gradient(90deg,#444,#666); }
+  .fx.active .bar { animation:slide 2.2s linear infinite; background-size:200% 100%; }
+  @keyframes slide { to { background-position:-200% 0; } }
+  .fx b { display:block; font-size:13.5px; font-weight:600; }
+  .fx small { color:var(--muted); font-size:11.5px; line-height:1.3; display:block; margin-top:2px; }
+  .fx .live { position:absolute; top:10px; right:10px; font-size:10px; font-weight:700; letter-spacing:.6px; color:#fff; background:var(--accent); border-radius:6px; padding:1px 6px; display:none; }
+  .fx.active .live { display:block; }
+
+  main { display:grid; grid-template-columns:repeat(auto-fill, minmax(360px, 1fr)); gap:18px; padding:22px; }
+  .card { background:linear-gradient(180deg, var(--card2), var(--card)); border:1px solid var(--line); border-radius:var(--radius); padding:16px 16px 14px;
+          display:flex; flex-direction:column; gap:12px; box-shadow:var(--shadow); position:relative; overflow:hidden; transition:opacity .15s; }
+  .card::before { content:""; position:absolute; inset:0 0 auto 0; height:3px; background:var(--glow, var(--line2)); opacity:.9; transition:background .25s; }
+  .card.busy { opacity:.75; }
+  .card h2 { margin:0; font-size:15px; font-weight:600; display:flex; align-items:center; gap:10px; }
+  .card h2 .type { font-size:11px; font-weight:600; letter-spacing:.6px; text-transform:uppercase; color:var(--muted); background:var(--bg2); border:1px solid var(--line); border-radius:6px; padding:2px 7px; }
+  .card h2 .preview { margin-left:auto; width:34px; height:14px; border-radius:7px; background:var(--glow, #333); box-shadow:0 0 12px var(--glow, transparent); transition:background .25s, box-shadow .25s; }
+  .note { color:var(--muted); font-size:12.5px; line-height:1.4; }
+  .controls { display:grid; grid-template-columns:1fr 1fr; gap:10px 12px; }
+  .controls label { display:flex; flex-direction:column; gap:4px; font-size:11.5px; color:var(--muted); }
+  .controls label span.v { float:right; color:var(--fg); }
+  .controls select { width:100%; }
+  input[type=range] { width:100%; accent-color:var(--accent); }
+  input[type=range]:disabled { opacity:.35; }
+  .actions { display:flex; gap:8px; align-items:center; }
+  .actions .hint { color:var(--muted); font-size:11.5px; margin-left:auto; }
+  .zones { display:flex; flex-direction:column; gap:6px; }
+  .zone { display:grid; grid-template-columns:1fr auto auto; gap:10px; align-items:center; padding:9px 12px; background:var(--bg2); border:1px solid var(--line); border-radius:10px; }
+  .zone:hover { border-color:var(--line2); }
+  .zone .name { font-size:13px; display:flex; flex-direction:column; gap:1px; }
+  .zone .name small { color:var(--muted); font-size:11.5px; }
+  .zone .chip { width:10px; height:10px; border-radius:50%; display:inline-block; margin-right:7px; vertical-align:-1px; box-shadow:0 0 8px currentColor; transition:background .25s, color .25s; }
+  .empty { grid-column:1 / -1; text-align:center; color:var(--muted); padding:60px 20px; }
+  .empty b { color:var(--fg); }
+  .toast { position:fixed; left:50%; bottom:22px; transform:translateX(-50%) translateY(20px); background:#1c2230; border:1px solid var(--line2); color:var(--fg);
+           padding:10px 16px; border-radius:12px; box-shadow:var(--shadow); opacity:0; transition:opacity .2s, transform .2s; pointer-events:none; font-size:13px; }
+  .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+  .toast.bad { border-color:var(--bad); }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><div class="ring" id="ring"></div><h1>RGB Panel</h1></div>
+  <div class="group">
+    <span class="lbl">Everything</span>
+    <div class="swatches" id="global-swatches"></div>
+    <input type="color" id="global-color" value="#ff9040" title="Pick a colour for everything">
+    <button class="primary" id="btn-all">Apply</button>
+    <button id="btn-all-off">Off</button>
+  </div>
+  <div class="group">
+    <span class="lbl">Profiles</span>
+    <select id="profiles"></select>
+    <button id="btn-load">Load</button>
+    <input type="text" id="profile-name" placeholder="name" style="width:110px">
+    <button id="btn-save">Save</button>
+  </div>
+  <div class="status"><span class="dot" id="dot"></span><span id="status">connecting</span><button class="ghost" id="btn-reconnect" title="Reconnect to OpenRGB">Reconnect</button></div>
+</header>
+
+<section class="effects">
+  <div class="fx-head">
+    <h2>Effects</h2>
+    <span class="note" id="fx-status">Pick one. Any colour or mode you set later stops it.</span>
+    <div class="sliders">
+      <label>Speed <input type="range" id="fx-speed" min="0" max="100" value="50"><span class="v" id="fx-speed-v">50</span></label>
+      <label>Brightness <input type="range" id="fx-bright" min="0" max="100" value="100"><span class="v" id="fx-bright-v">100</span></label>
+      <button id="fx-stop">Stop</button>
+    </div>
+  </div>
+  <div class="fx-grid" id="fx-grid"></div>
+</section>
+
+<main id="devices"><div class="empty">Connecting to OpenRGB</div></main>
+<div class="toast" id="toast"></div>
+<script>
+const SWATCHES = ['#ff3b3b','#ff9040','#ffd23f','#3ddc97','#4cc9f0','#4c6fff','#8a6dff','#ff5ec4','#ffffff'];
+const FX_BARS = {
+  'Rainbow wave':'linear-gradient(90deg,#ff3b3b,#ffd23f,#3ddc97,#4cc9f0,#8a6dff,#ff3b3b)',
+  'Plasma':'linear-gradient(90deg,#ff5ec4,#4cc9f0,#ffd23f,#ff5ec4)',
+  'Breathe':'linear-gradient(90deg,#1a1f2a,#8a6dff,#1a1f2a)',
+  'Comet':'linear-gradient(90deg,#1a1f2a,#1a1f2a,#fff,#4c6fff,#1a1f2a)',
+  'Cyberpunk':'linear-gradient(90deg,#ff0099,#fff,#00e5ff)',
+  'Aurora':'linear-gradient(90deg,#00e68a,#7a2cff,#00e68a)',
+  'Ocean':'linear-gradient(90deg,#001a66,#00e5ff,#001a66)',
+  'Lava':'linear-gradient(90deg,#4d0000,#ff7300,#4d0000)',
+  'Fire':'linear-gradient(90deg,#8a1400,#ff9d00,#ffe066,#8a1400)',
+  'Candle':'linear-gradient(90deg,#b35a00,#ff8c1a,#b35a00)',
+  'Matrix':'linear-gradient(90deg,#001a05,#00ff41,#001a05)',
+  'Disco':'linear-gradient(90deg,#ff3b3b 25%,#ffd23f 25% 50%,#3ddc97 50% 75%,#8a6dff 75%)',
+  'Police':'linear-gradient(90deg,#ff1a1a 50%,#1a4dff 50%)',
+  'Thunderstorm':'linear-gradient(90deg,#050a2e,#050a2e,#fff,#050a2e)',
+  'Soft strobe':'linear-gradient(90deg,#1a1f2a,#ffd23f,#1a1f2a,#4cc9f0,#1a1f2a)',
+  'Sweden':'linear-gradient(90deg,#0059e6 40%,#ffcc00 40% 60%,#0059e6 60%)',
+  'Soviet Union':'linear-gradient(90deg,#8a0000,#cc0000 45%,#ffcc00 50%,#cc0000 55%,#8a0000)',
+  'America':'linear-gradient(90deg,#e6001a 34%,#ffffff 34% 50%,#1a3bff 50%)',
+};
+const $ = id => document.getElementById(id);
+const TYPE_LABEL = {MOTHERBOARD:'board', DRAM:'ram', GPU:'gpu', MOUSEMAT:'mousepad', KEYBOARD:'keyboard', MOUSE:'mouse', COOLER:'cooler', LEDSTRIP:'strip'};
+let toastTimer = null, STATE = null, SIGNATURE = '', lastTouch = 0, inflight = 0;
+const CARDS = new Map();   // device id -> {el, refs}
+
+function toast(msg, bad) {
+  const t = $('toast'); t.textContent = msg; t.className = 'toast show' + (bad ? ' bad' : '');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.className = 'toast', bad ? 4000 : 1200);
+}
+function setStatus(text, level) { $('status').textContent = text; $('dot').className = 'dot ' + (level || ''); }
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function throttle(fn, ms) {           // leading + trailing: instant first call, then at most one per ms
+  let last = 0, timer = null, pending = null;
+  return (...a) => {
+    pending = a; const now = Date.now();
+    if (now - last >= ms) { last = now; fn(...pending); pending = null; }
+    else if (!timer) timer = setTimeout(() => { timer = null; last = Date.now(); if (pending) { fn(...pending); pending = null; } }, ms - (now - last));
+  };
+}
+function interacting() { const a = document.activeElement; return (Date.now() - lastTouch < 1500) || (a && a.matches && a.matches('input, select')); }
+document.addEventListener('pointerdown', () => lastTouch = Date.now(), true);
+document.addEventListener('input', () => lastTouch = Date.now(), true);
+
+async function post(action, body, opts = {}) {
+  inflight++; $('dot').classList.add('busy');
+  if (opts.card) opts.card.classList.add('busy');
+  try {
+    const r = await fetch('/api/' + action, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+    const data = await r.json();
+    if (data.error) { setStatus(data.error, 'bad'); toast(data.error, true); return null; }
+    apply(data);
+    if (opts.toast) toast(opts.toast);
+    return data;
+  } catch (e) { setStatus('panel unreachable', 'bad'); return null; }
+  finally { inflight--; if (!inflight) $('dot').classList.remove('busy'); if (opts.card) opts.card.classList.remove('busy'); }
+}
+async function refresh() {
+  if (interacting() || inflight) return;
+  try {
+    const r = await fetch('/api/state'); const data = await r.json();
+    if (data.error) { setStatus(data.error, 'bad'); await health(); return; }
+    apply(data);
+  } catch (e) { setStatus('panel unreachable', 'bad'); }
+}
+async function health() {
+  try {
+    const h = await (await fetch('/api/health')).json();
+    if (h.openrgb === 'restarting') setStatus('OpenRGB is restarting', 'warn');
+    else if (!h.port_up) setStatus('OpenRGB server is down, watchdog will restart it', 'bad');
+  } catch (e) {}
+}
+
+function signature(data) {
+  return data.devices.map(d => d.id + ':' + d.name + ':' + d.zones.map(z => z.id + '/' + z.leds).join(',') + ':' + d.modes.length).join('|');
+}
+
+// Apply a fresh state: rebuild the DOM only when the device layout changed, otherwise patch values in place.
+function apply(data) {
+  STATE = data;
+  if (!inflight) setStatus(data.devices.length + ' devices online', 'ok');
+  const sel = $('profiles');
+  if (document.activeElement !== sel) {
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">choose</option>' + data.profiles.map(p => '<option' + (p === cur ? ' selected' : '') + '>' + esc(p) + '</option>').join('');
+  }
+  renderEffects(data);
+  const sig = signature(data);
+  if (sig !== SIGNATURE) { SIGNATURE = sig; rebuild(data); }
+  else for (const d of data.devices) patchCard(d);
+}
+
+function rebuild(data) {
+  const main = $('devices'); main.innerHTML = ''; CARDS.clear();
+  if (!data.devices.length) { main.innerHTML = '<div class="empty"><b>No devices yet.</b> OpenRGB is still detecting hardware.</div>'; return; }
+  for (const d of data.devices) main.appendChild(card(d));
+}
+
+function renderEffects(data) {
+  const fx = data.effect || {};
+  const grid = $('fx-grid');
+  if (!grid.dataset.built) {
+    grid.innerHTML = '';
+    for (const e of data.effects) {
+      const el = document.createElement('div'); el.className = 'fx'; el.dataset.name = e.name;
+      el.innerHTML = '<div class="bar"></div><b>' + esc(e.name) + '</b><small>' + esc(e.desc) + '</small><span class="live">LIVE</span>';
+      if (FX_BARS[e.name]) el.querySelector('.bar').style.backgroundImage = FX_BARS[e.name];
+      el.onclick = () => { for (const x of grid.children) x.classList.toggle('active', x === el); post('effect', {name: e.name, speed: +$('fx-speed').value, brightness: +$('fx-bright').value}); };
+      grid.appendChild(el);
+    }
+    grid.dataset.built = '1';
+  }
+  for (const el of grid.children) el.classList.toggle('active', !!fx.running && el.dataset.name === fx.name);
+  $('ring').classList.toggle('spin', !!fx.running);
+  if (document.activeElement !== $('fx-speed')) { $('fx-speed').value = fx.speed ?? 50; $('fx-speed-v').textContent = fx.speed ?? 50; }
+  if (document.activeElement !== $('fx-bright')) { $('fx-bright').value = fx.brightness ?? 100; $('fx-bright-v').textContent = fx.brightness ?? 100; }
+  $('fx-status').textContent = fx.running ? ('Running: ' + fx.name + (fx.error ? ' (' + fx.error + ')' : '') + (fx.music ? ' - ' + fx.music : '')) : (fx.error ? 'Stopped: ' + fx.error : 'Pick one. Any colour or mode you set later stops it.');
+}
+
+function modeOf(d, name) { return d.modes.find(m => m.name === name) || {}; }
+function glowOf(d) { const c = d.zones.length ? d.zones[0].color : '#ffffff'; return c === '#000000' ? '#2a3040' : c; }
+function brightOf(d) { const m = modeOf(d, d.active_mode); return (m.brightness != null && m.name !== 'Direct') ? m.brightness : d.soft_brightness; }
+
+function card(d) {
+  const el = document.createElement('div'); el.className = 'card'; el.dataset.id = d.id;
+  const mode = modeOf(d, d.active_mode);
+  const firstColor = d.zones.length ? d.zones[0].color : '#ffffff';
+  el.style.setProperty('--glow', glowOf(d));
+  el.innerHTML =
+    '<h2><span class="type">' + esc(TYPE_LABEL[d.type] || d.type.toLowerCase()) + '</span><span>' + esc(d.name) + '</span><span class="preview"></span></h2>' +
+    (d.note ? '<div class="note">' + esc(d.note) + '</div>' : '') +
+    '<div class="controls">' +
+      '<label>Mode<select data-mode>' + d.modes.map(m => '<option' + (m.name === d.active_mode ? ' selected' : '') + '>' + esc(m.name) + '</option>').join('') + '</select></label>' +
+      '<label>Mode colour<div style="display:flex;gap:8px;align-items:center"><input type="color" data-modecolor value="' + firstColor + '"><span class="note">for modes with one colour</span></div></label>' +
+      '<label><span>Speed <span class="v" data-speed-v>' + (mode.speed == null ? '' : mode.speed) + '</span></span><input type="range" data-speed min="0" max="100" value="' + (mode.speed == null ? 50 : mode.speed) + '"' + (mode.speed == null ? ' disabled title="This mode has no speed"' : '') + '></label>' +
+      '<label><span>Brightness <span class="v" data-bright-v>' + brightOf(d) + '</span></span><input type="range" data-bright min="0" max="100" value="' + brightOf(d) + '"></label>' +
+    '</div>' +
+    '<div class="actions"><button class="primary" data-apply>Apply colour</button><button data-off>Off</button>' +
+      (d.underside == null ? '' : '<label class="toggle" style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-left:6px">underside <select data-underside style="padding:3px 6px">' +
+        ['auto','on','off'].map(v => '<option value="' + v + '"' + (d.underside === v ? ' selected' : '') + '>' + v + '</option>').join('') +
+        '</select><span data-underside-now>' + (d.underside_now ? 'lit' : 'dark') + '</span></label>') +
+      '<span class="hint">modes switch as you pick them</span></div>' +
+    '<div class="zones"></div>';
+  const zones = el.querySelector('.zones');
+  const refs = {modeSel: el.querySelector('[data-mode]'), modeColor: el.querySelector('[data-modecolor]'),
+                speed: el.querySelector('[data-speed]'), speedV: el.querySelector('[data-speed-v]'),
+                bright: el.querySelector('[data-bright]'), brightV: el.querySelector('[data-bright-v]'), zones: {}};
+  for (const z of d.zones) {
+    const row = document.createElement('div'); row.className = 'zone';
+    row.innerHTML =
+      '<span class="name"><span><span class="chip" style="color:' + z.color + ';background:' + z.color + '"></span>' + esc(z.name) + '</span>' +
+      '<small>' + z.leds + ' LEDs' + (z.label ? ' · ' + esc(z.label) : '') + '</small></span>' +
+      (z.resizable ? '<input type="number" min="0" max="120" value="' + z.leds + '" title="LED count on this header" data-count>' : '<span></span>') +
+      '<input type="color" value="' + z.color + '" data-zonecolor title="Colour for this zone">';
+    const picker = row.querySelector('[data-zonecolor]');
+    const send = throttle(v => post('color', {device: d.id, zone: z.id, color: v}, {card: el}), 120);
+    picker.addEventListener('input', ev => send(ev.target.value));
+    picker.addEventListener('change', ev => send(ev.target.value));
+    const cnt = row.querySelector('[data-count]');
+    if (cnt) cnt.addEventListener('change', ev => post('resize', {device: d.id, zone: z.id, count: ev.target.value}, {card: el, toast: 'Zone resized'}));
+    refs.zones[z.id] = {chip: row.querySelector('.chip'), picker};
+    zones.appendChild(row);
+  }
+  const applyMode = () => {
+    const m = modeOf(d, refs.modeSel.value);
+    if (!m.name) return;
+    refs.speed.disabled = m.speed == null;
+    post('mode', {device: d.id, mode: m.name,
+      color: m.colors ? refs.modeColor.value : null,
+      speed: m.speed == null ? null : +refs.speed.value,
+      brightness: (m.brightness == null || m.name === 'Direct') ? null : +refs.bright.value}, {card: el, toast: m.name});
+  };
+  refs.modeSel.addEventListener('change', applyMode);
+  refs.speed.addEventListener('input', () => refs.speedV.textContent = refs.speed.value);
+  refs.bright.addEventListener('input', () => refs.brightV.textContent = refs.bright.value);
+  const sendSpeed = throttle(v => post('speed', {device: d.id, value: v}, {card: el}), 150);
+  const sendBright = throttle(v => post('brightness', {device: d.id, value: v}, {card: el}), 150);
+  refs.speed.addEventListener('input', () => sendSpeed(+refs.speed.value));
+  refs.bright.addEventListener('input', () => sendBright(+refs.bright.value));
+  el.querySelector('[data-apply]').addEventListener('click', () => {
+    const m = modeOf(d, refs.modeSel.value);
+    if (m.name === 'Direct' || !m.colors) post('color', {device: d.id, color: refs.modeColor.value}, {card: el, toast: 'Colour set'});
+    else applyMode();
+  });
+  el.querySelector('[data-off]').addEventListener('click', () => post('off', {device: d.id}, {card: el, toast: 'Off'}));
+  const und = el.querySelector('[data-underside]');
+  if (und) { refs.underside = und; refs.undersideNow = el.querySelector('[data-underside-now]'); und.addEventListener('change', () => post('underside', {mode: und.value}, {card: el, toast: 'Underside: ' + und.value})); }
+  CARDS.set(d.id, {el, refs});
+  return el;
+}
+
+function patchCard(d) {
+  const c = CARDS.get(d.id); if (!c) return;
+  const {el, refs} = c; const a = document.activeElement;
+  el.style.setProperty('--glow', glowOf(d));
+  if (a !== refs.modeSel) refs.modeSel.value = d.active_mode || '';
+  const mode = modeOf(d, d.active_mode);
+  if (a !== refs.speed) { refs.speed.disabled = mode.speed == null; if (mode.speed != null) { refs.speed.value = mode.speed; refs.speedV.textContent = mode.speed; } }
+  if (a !== refs.bright) { refs.bright.value = brightOf(d); refs.brightV.textContent = brightOf(d); }
+  for (const z of d.zones) {
+    const zr = refs.zones[z.id]; if (!zr) continue;
+    zr.chip.style.color = z.color; zr.chip.style.background = z.color;
+    if (a !== zr.picker) zr.picker.value = z.color;
+  }
+  if (a !== refs.modeColor && d.zones.length) refs.modeColor.value = d.zones[0].color;
+  if (refs.underside && d.underside != null) { if (a !== refs.underside) refs.underside.value = d.underside; refs.undersideNow.textContent = d.underside_now ? 'lit' : 'dark'; }
+}
+
+$('btn-all').onclick = () => post('color', {device: 'all', color: $('global-color').value}, {toast: 'Everything set'});
+$('btn-all-off').onclick = () => post('off', {device: 'all'}, {toast: 'Everything off'});
+$('btn-load').onclick = () => { const n = $('profiles').value; if (n) post('profile_load', {name: n}, {toast: 'Loaded ' + n}); else toast('Choose a profile first', true); };
+$('btn-save').onclick = () => { const n = $('profile-name').value.trim(); if (n) post('profile_save', {name: n}, {toast: 'Saved ' + n}); else toast('Type a profile name first', true); };
+$('btn-reconnect').onclick = () => post('reconnect', {}, {toast: 'Reconnected'});
+$('fx-stop').onclick = () => post('effect_stop', {}, {toast: 'Effect stopped'});
+const fxLive = throttle(() => post('effect_update', {speed: +$('fx-speed').value, brightness: +$('fx-bright').value}), 150);
+$('fx-speed').addEventListener('input', () => { $('fx-speed-v').textContent = $('fx-speed').value; fxLive(); });
+$('fx-bright').addEventListener('input', () => { $('fx-bright-v').textContent = $('fx-bright').value; fxLive(); });
+const gs = $('global-swatches');
+for (const c of SWATCHES) {
+  const b = document.createElement('div'); b.className = 'swatch'; b.style.background = c; b.title = c;
+  b.onclick = () => { $('global-color').value = c; post('color', {device: 'all', color: c}); };
+  gs.appendChild(b);
+}
+refresh();
+setInterval(() => { if (document.visibilityState === 'visible') refresh(); }, 8000);
+</script>
+</body>
+</html>

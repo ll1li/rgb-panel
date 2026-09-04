@@ -1,0 +1,33 @@
+# environments and build outputs
+.venv/
+__pycache__/
+*.pyc
+dist/
+build/app/
+build/OpenRGB/
+build/Qt/
+build/jom/
+build/*.log
+
+# the patched OpenRGB binaries that the scheduled task runs (rebuilt from build\ + the patch)
+openrgb-custom/
+
+# fetched recordings and their caches (re-fetch with fetch_music.py); keep the source notes
+music/*.wav
+music/*.env.json
+anthem.wav
+
+# runtime state and logs
+settings.json
+panel.log
+app-src.log
+app-src.err
+
+# build downloads and test logs
+build/jom.zip
+build/*.err
+build/*.out
+
+# machine-specific notes and labels stay local; labels.example.json is the template
+NOTES.local.md
+labels.json

@@ -1,0 +1,480 @@
+diff --git a/Controllers/MSIGPUController/MSIGPUPascalController/MSIGPUPascalController.cpp b/Controllers/MSIGPUController/MSIGPUPascalController/MSIGPUPascalController.cpp
+new file mode 100644
+index 00000000..d528a7b2
+--- /dev/null
++++ b/Controllers/MSIGPUController/MSIGPUPascalController/MSIGPUPascalController.cpp
+@@ -0,0 +1,99 @@
++/*---------------------------------------------------------*\
++| MSIGPUPascalController.cpp                                |
++|                                                           |
++|   Driver for MSI Pascal-era Gaming X GPUs (GTX 10 series) |
++|                                                           |
++|   This file is part of the OpenRGB project                |
++|   SPDX-License-Identifier: GPL-2.0-or-later               |
++\*---------------------------------------------------------*/
++
++#include "MSIGPUPascalController.h"
++#include <chrono>
++#include <thread>
++
++MSIGPUPascalController::MSIGPUPascalController(i2c_smbus_interface* bus, msi_gpu_pascal_dev_id dev, std::string dev_name)
++{
++    this->bus   = bus;
++    this->dev   = dev;
++    this->name  = dev_name;
++}
++
++MSIGPUPascalController::~MSIGPUPascalController()
++{
++
++}
++
++std::string MSIGPUPascalController::GetDeviceLocation()
++{
++    std::string return_string(bus->device_name);
++    char addr[5];
++    snprintf(addr, 5, "0x%02X", dev);
++    return_string.append(", address ");
++    return_string.append(addr);
++    return("I2C: " + return_string);
++}
++
++std::string MSIGPUPascalController::GetDeviceName()
++{
++    return(name);
++}
++
++/*---------------------------------------------------------*\
++| The controller is write-only; the status register reads   |
++| 0x00 when the chip is present and NACKs when it is not.   |
++\*---------------------------------------------------------*/
++bool MSIGPUPascalController::Probe()
++{
++    return(bus->i2c_smbus_read_byte_data(dev, MSI_GPU_PASCAL_REG_STATUS) >= 0);
++}
++
++unsigned char MSIGPUPascalController::Scale(unsigned char value)
++{
++    /* Mystic Light sends ceil(value * 32 / 255) */
++    return((unsigned char)((value * MSI_GPU_PASCAL_COLOR_MAX + 254) / 255));
++}
++
++void MSIGPUPascalController::SendPacket(unsigned char command, unsigned char led_mask, const unsigned char* payload, unsigned char payload_len)
++{
++    /*---------------------------------------------------------*\
++    | Mystic Light reads the status register before every       |
++    | packet; the chip drops packets sent while it is still     |
++    | processing the previous one, so poll for 0x00 and pace.   |
++    \*---------------------------------------------------------*/
++    for(int attempt = 0; attempt < 20; attempt++)
++    {
++        if(bus->i2c_smbus_read_byte_data(dev, MSI_GPU_PASCAL_REG_STATUS) == 0x00)
++        {
++            break;
++        }
++        std::this_thread::sleep_for(std::chrono::milliseconds(5));
++    }
++
++    bus->i2c_smbus_write_byte_data(dev, MSI_GPU_PASCAL_REG_COMMAND, command);
++    bus->i2c_smbus_write_byte_data(dev, MSI_GPU_PASCAL_REG_MASK, led_mask);
++    bus->i2c_smbus_write_byte_data(dev, MSI_GPU_PASCAL_REG_ZERO, 0x00);
++
++    unsigned char reg = MSI_GPU_PASCAL_REG_PAYLOAD;
++
++    for(unsigned char i = 0; i < payload_len; i++)
++    {
++        bus->i2c_smbus_write_byte_data(dev, reg++, payload[i]);
++    }
++
++    bus->i2c_smbus_write_byte_data(dev, reg, MSI_GPU_PASCAL_PACKET_END);
++
++    std::this_thread::sleep_for(std::chrono::milliseconds(MSI_GPU_PASCAL_PACKET_GAP_MS));
++}
++
++void MSIGPUPascalController::SetStatic(unsigned char led_mask, unsigned char red, unsigned char green, unsigned char blue)
++{
++    unsigned char rgb[3] = { Scale(red), Scale(green), Scale(blue) };
++
++    SendPacket(MSI_GPU_PASCAL_CMD_STATIC,   led_mask, rgb, 3);
++    SendPacket(MSI_GPU_PASCAL_CMD_STATIC_2, led_mask, rgb, 3);
++}
++
++void MSIGPUPascalController::SetOff(unsigned char led_mask)
++{
++    SendPacket(MSI_GPU_PASCAL_CMD_OFF, led_mask, nullptr, 0);
++}
+diff --git a/Controllers/MSIGPUController/MSIGPUPascalController/MSIGPUPascalController.h b/Controllers/MSIGPUController/MSIGPUPascalController/MSIGPUPascalController.h
+new file mode 100644
+index 00000000..f76dd48a
+--- /dev/null
++++ b/Controllers/MSIGPUController/MSIGPUPascalController/MSIGPUPascalController.h
+@@ -0,0 +1,77 @@
++/*---------------------------------------------------------*\
++| MSIGPUPascalController.h                                  |
++|                                                           |
++|   Driver for MSI Pascal-era Gaming X GPUs (GTX 10 series) |
++|   Command-packet LED controller at NvAPI I2C address 0x38 |
++|                                                           |
++|   Protocol from Mystic Light captures (OpenRGB issue      |
++|   2298, GTX 1070 Ti Gaming) and the MSI NDA.dll command   |
++|   numbers used by Vipeax/MSI-LED-Tool.                    |
++|                                                           |
++|   This file is part of the OpenRGB project                |
++|   SPDX-License-Identifier: GPL-2.0-or-later               |
++\*---------------------------------------------------------*/
++
++#pragma once
++
++#include <string>
++#include "i2c_smbus.h"
++
++typedef unsigned char msi_gpu_pascal_dev_id;
++
++/*---------------------------------------------------------*\
++| Packet layout, one register write per byte                |
++|   0x20  command                                           |
++|   0x21  LED mask (side 0x01 | back 0x02 | front 0x04)     |
++|   0x22  0x00                                              |
++|   0x23.. payload (R, G, B scaled 0..32), then 0xFA        |
++\*---------------------------------------------------------*/
++enum
++{
++    MSI_GPU_PASCAL_REG_COMMAND              = 0x20,
++    MSI_GPU_PASCAL_REG_MASK                 = 0x21,
++    MSI_GPU_PASCAL_REG_ZERO                 = 0x22,
++    MSI_GPU_PASCAL_REG_PAYLOAD              = 0x23,
++    MSI_GPU_PASCAL_REG_STATUS               = 0x31,     /* read before each packet, always 0x00 */
++};
++
++enum
++{
++    MSI_GPU_PASCAL_CMD_STATIC               = 0x15,     /* NDA cmd 21 */
++    MSI_GPU_PASCAL_CMD_STATIC_2             = 0x20,     /* second packet Mystic Light always sends */
++    MSI_GPU_PASCAL_CMD_OFF                  = 0x18,     /* NDA cmd 24 */
++};
++
++enum
++{
++    MSI_GPU_PASCAL_LED_SIDE                 = 0x01,
++    MSI_GPU_PASCAL_LED_BACK                 = 0x02,
++    MSI_GPU_PASCAL_LED_FRONT                = 0x04,
++    MSI_GPU_PASCAL_LED_ALL                  = 0x07,
++};
++
++#define MSI_GPU_PASCAL_PACKET_END           0xFA
++#define MSI_GPU_PASCAL_COLOR_MAX            32
++#define MSI_GPU_PASCAL_PACKET_GAP_MS        50
++
++class MSIGPUPascalController
++{
++public:
++    MSIGPUPascalController(i2c_smbus_interface* bus, msi_gpu_pascal_dev_id dev, std::string dev_name);
++    ~MSIGPUPascalController();
++
++    std::string   GetDeviceLocation();
++    std::string   GetDeviceName();
++
++    bool          Probe();
++    void          SetStatic(unsigned char led_mask, unsigned char red, unsigned char green, unsigned char blue);
++    void          SetOff(unsigned char led_mask);
++
++private:
++    void          SendPacket(unsigned char command, unsigned char led_mask, const unsigned char* payload, unsigned char payload_len);
++    unsigned char Scale(unsigned char value);
++
++    i2c_smbus_interface *   bus;
++    msi_gpu_pascal_dev_id   dev;
++    std::string             name;
++};
+diff --git a/Controllers/MSIGPUController/MSIGPUPascalController/MSIGPUPascalControllerDetect.cpp b/Controllers/MSIGPUController/MSIGPUPascalController/MSIGPUPascalControllerDetect.cpp
+new file mode 100644
+index 00000000..29266ed8
+--- /dev/null
++++ b/Controllers/MSIGPUController/MSIGPUPascalController/MSIGPUPascalControllerDetect.cpp
+@@ -0,0 +1,49 @@
++/*---------------------------------------------------------*\
++| MSIGPUPascalControllerDetect.cpp                          |
++|                                                           |
++|   Detector for MSI Pascal-era Gaming X GPUs               |
++|                                                           |
++|   This file is part of the OpenRGB project                |
++|   SPDX-License-Identifier: GPL-2.0-or-later               |
++\*---------------------------------------------------------*/
++
++#include "Detector.h"
++#include "LogManager.h"
++#include "MSIGPUPascalController.h"
++#include "RGBController_MSIGPUPascal.h"
++#include "i2c_smbus.h"
++#include "pci_ids.h"
++
++/******************************************************************************************\
++*                                                                                          *
++*   DetectMSIGPUPascalControllers                                                          *
++*                                                                                          *
++*       Detect the write-only MSI LED controller at 0x38 on NvAPI I2C port 1 used by       *
++*       the GTX 10-series Gaming X cards.  The chip answers reads with 0x00 and NACKs      *
++*       when absent, which is enough to avoid registering a phantom device.                *
++*                                                                                          *
++\******************************************************************************************/
++
++void DetectMSIGPUPascalControllers(i2c_smbus_interface* bus, uint8_t i2c_addr, const std::string& name)
++{
++    if(bus->pci_vendor == NVIDIA_VEN && bus->port_id != 1)
++    {
++        return;
++    }
++
++    MSIGPUPascalController* controller = new MSIGPUPascalController(bus, i2c_addr, name);
++
++    if(!controller->Probe())
++    {
++        LOG_INFO("[%s] no response at 0x%02X, skipping", name.c_str(), i2c_addr);
++        delete controller;
++        return;
++    }
++
++    RGBController_MSIGPUPascal* rgb_controller = new RGBController_MSIGPUPascal(controller);
++
++    ResourceManager::get()->RegisterRGBController(rgb_controller);
++
++} /* DetectMSIGPUPascalControllers() */
++
++REGISTER_I2C_PCI_DETECTOR("MSI GeForce GTX 1080 Gaming X",                  DetectMSIGPUPascalControllers,  NVIDIA_VEN,     NVIDIA_GTX1080_DEV,         MSI_SUB_VEN,    MSI_GTX1080_GAMING_X_SUB_DEV,           0x38);
+diff --git a/Controllers/MSIGPUController/MSIGPUPascalController/RGBController_MSIGPUPascal.cpp b/Controllers/MSIGPUController/MSIGPUPascalController/RGBController_MSIGPUPascal.cpp
+new file mode 100644
+index 00000000..ad97090c
+--- /dev/null
++++ b/Controllers/MSIGPUController/MSIGPUPascalController/RGBController_MSIGPUPascal.cpp
+@@ -0,0 +1,177 @@
++/*---------------------------------------------------------*\
++| RGBController_MSIGPUPascal.cpp                            |
++|                                                           |
++|   RGBController for MSI Pascal-era Gaming X GPUs          |
++|                                                           |
++|   This file is part of the OpenRGB project                |
++|   SPDX-License-Identifier: GPL-2.0-or-later               |
++\*---------------------------------------------------------*/
++
++#include "RGBController_MSIGPUPascal.h"
++
++/**------------------------------------------------------------------*\
++    @name MSI GPU (Pascal Gaming X)
++    @category GPU
++    @type I2C
++    @save :x:
++    @direct :white_check_mark:
++    @effects :x:
++    @detectors DetectMSIGPUPascalControllers
++    @comment Write-only controller, so OpenRGB cannot read the
++        current colours back. Only static colour and off are
++        known from captures; the hardware effects are not.
++\*-------------------------------------------------------------------*/
++
++/*---------------------------------------------------------*\
++| Verified on a GTX 1080 Gaming X 8G (1462:3362) by eye:     |
++|   mask 0x01 = the RGB "MSI" logo on the side              |
++|   mask 0x04 = the red-only accent LEDs on the underside,  |
++|               they ignore the colour and only do on/off   |
++|   mask 0x02 = no visible LED on this card                 |
++| The 1070 Ti capture named them side/back/front instead.   |
++\*---------------------------------------------------------*/
++static const unsigned char led_masks[3] = { MSI_GPU_PASCAL_LED_SIDE, MSI_GPU_PASCAL_LED_FRONT, MSI_GPU_PASCAL_LED_BACK };
++
++RGBController_MSIGPUPascal::RGBController_MSIGPUPascal(MSIGPUPascalController* controller_ptr)
++{
++    controller  = controller_ptr;
++
++    name        = controller->GetDeviceName();
++    vendor      = "MSI";
++    type        = DEVICE_TYPE_GPU;
++    description = name;
++    location    = controller->GetDeviceLocation();
++
++    mode Direct;
++    Direct.name       = "Direct";
++    Direct.value      = MSI_GPU_PASCAL_CMD_STATIC;
++    Direct.flags      = MODE_FLAG_HAS_PER_LED_COLOR;
++    Direct.color_mode = MODE_COLORS_PER_LED;
++    modes.push_back(Direct);
++
++    mode Off;
++    Off.name          = "Off";
++    Off.value         = MSI_GPU_PASCAL_CMD_OFF;
++    Off.flags         = 0;
++    Off.color_mode    = MODE_COLORS_NONE;
++    modes.push_back(Off);
++
++    SetupZones();
++
++    last_commit_time = std::chrono::steady_clock::now();
++}
++
++RGBController_MSIGPUPascal::~RGBController_MSIGPUPascal()
++{
++    delete controller;
++}
++
++void RGBController_MSIGPUPascal::SetupZones()
++{
++    zone gpu_zone;
++    gpu_zone.name       = "GPU";
++    gpu_zone.type       = ZONE_TYPE_LINEAR;
++    gpu_zone.leds_min   = 3;
++    gpu_zone.leds_max   = 3;
++    gpu_zone.leds_count = 3;
++    gpu_zone.matrix_map = NULL;
++    zones.push_back(gpu_zone);
++
++    led logo;
++    logo.name = "Logo";
++    leds.push_back(logo);
++
++    led underside;
++    underside.name = "Underside (red, on/off)";
++    leds.push_back(underside);
++
++    led back;
++    back.name = "Back";
++    leds.push_back(back);
++
++    SetupColors();
++
++    /* Write-only chip: assume the factory white until told otherwise */
++    for(std::size_t i = 0; i < colors.size(); i++)
++    {
++        colors[i] = ToRGBColor(255, 255, 255);
++    }
++}
++
++void RGBController_MSIGPUPascal::ResizeZone(int /*zone*/, int /*new_size*/)
++{
++    /*---------------------------------------------------------*\
++    | This device does not support resizing zones               |
++    \*---------------------------------------------------------*/
++}
++
++bool RGBController_MSIGPUPascal::TimeToSend()
++{
++    /* Each colour update is up to 3 x 2 packets x 8 register writes over NvAPI; keep it gentle */
++    return((std::chrono::steady_clock::now() - last_commit_time) > std::chrono::milliseconds(100));
++}
++
++/*---------------------------------------------------------*\
++| A black colour is sent as the Off command for that LED    |
++| group: the card's single-colour (red) accent LEDs ignore  |
++| the RGB payload and only react to Off / static-on.        |
++\*---------------------------------------------------------*/
++static void SendGroup(MSIGPUPascalController* controller, unsigned char mask, RGBColor color)
++{
++    if(RGBGetRValue(color) == 0 && RGBGetGValue(color) == 0 && RGBGetBValue(color) == 0)
++    {
++        controller->SetOff(mask);
++    }
++    else
++    {
++        controller->SetStatic(mask, RGBGetRValue(color), RGBGetGValue(color), RGBGetBValue(color));
++    }
++}
++
++void RGBController_MSIGPUPascal::SendColors()
++{
++    if(colors[0] == colors[1] && colors[1] == colors[2])
++    {
++        SendGroup(controller, MSI_GPU_PASCAL_LED_ALL, colors[0]);
++    }
++    else
++    {
++        for(std::size_t i = 0; i < 3; i++)
++        {
++            SendGroup(controller, led_masks[i], colors[i]);
++        }
++    }
++}
++
++void RGBController_MSIGPUPascal::DeviceUpdateLEDs()
++{
++    if(TimeToSend())
++    {
++        SendColors();
++        last_commit_time = std::chrono::steady_clock::now();
++    }
++}
++
++void RGBController_MSIGPUPascal::UpdateZoneLEDs(int /*zone*/)
++{
++    DeviceUpdateLEDs();
++}
++
++void RGBController_MSIGPUPascal::UpdateSingleLED(int /*led*/)
++{
++    DeviceUpdateLEDs();
++}
++
++void RGBController_MSIGPUPascal::DeviceUpdateMode()
++{
++    if(modes[active_mode].value == MSI_GPU_PASCAL_CMD_OFF)
++    {
++        controller->SetOff(MSI_GPU_PASCAL_LED_ALL);
++    }
++    else
++    {
++        SendColors();
++    }
++
++    last_commit_time = std::chrono::steady_clock::now();
++}
+diff --git a/Controllers/MSIGPUController/MSIGPUPascalController/RGBController_MSIGPUPascal.h b/Controllers/MSIGPUController/MSIGPUPascalController/RGBController_MSIGPUPascal.h
+new file mode 100644
+index 00000000..84dd4812
+--- /dev/null
++++ b/Controllers/MSIGPUController/MSIGPUPascalController/RGBController_MSIGPUPascal.h
+@@ -0,0 +1,36 @@
++/*---------------------------------------------------------*\
++| RGBController_MSIGPUPascal.h                              |
++|                                                           |
++|   RGBController for MSI Pascal-era Gaming X GPUs          |
++|                                                           |
++|   This file is part of the OpenRGB project                |
++|   SPDX-License-Identifier: GPL-2.0-or-later               |
++\*---------------------------------------------------------*/
++
++#pragma once
++
++#include "RGBController.h"
++#include "MSIGPUPascalController.h"
++
++class RGBController_MSIGPUPascal : public RGBController
++{
++public:
++    RGBController_MSIGPUPascal(MSIGPUPascalController* controller_ptr);
++    ~RGBController_MSIGPUPascal();
++
++    void        SetupZones();
++    void        ResizeZone(int zone, int new_size);
++
++    void        DeviceUpdateLEDs();
++    void        UpdateZoneLEDs(int zone);
++    void        UpdateSingleLED(int led);
++
++    void        DeviceUpdateMode();
++
++private:
++    MSIGPUPascalController* controller;
++    std::chrono::time_point<std::chrono::steady_clock> last_commit_time;
++
++    bool        TimeToSend();
++    void        SendColors();
++};
+diff --git a/pci_ids/pci_ids.h b/pci_ids/pci_ids.h
+index 97fdc727..cc7883ef 100644
+--- a/pci_ids/pci_ids.h
++++ b/pci_ids/pci_ids.h
+@@ -763,6 +763,7 @@
+ | MSI Sub-Device IDs                                    |
+ \*-----------------------------------------------------*/
+ #define MSI_GTX1070_GAMING_X_SUB_DEV                            0x3306
++#define MSI_GTX1080_GAMING_X_SUB_DEV                            0x3362
+ #define MSI_GTX1660_GAMING_X_6G_SUB_DEV                         0x3790
+ #define MSI_GTX1660TI_GAMING_6G_SUB_DEV                         0x375C
+ #define MSI_GTX1660TI_GAMING_X_6G_SUB_DEV                       0x375A

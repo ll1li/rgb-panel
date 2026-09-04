@@ -1,0 +1,15 @@
+{
+  "_comment": "Copy to labels.json and edit. Keys are OpenRGB device names; inside, zone names map to a friendly label and _note is shown on the device card.",
+  "ASUS ROG STRIX X570-F GAMING": {
+    "_note": "Aura USB controller. Mainboard zone LED 1 is the strip along the board edge; RGB Header 1-2 are the 12V headers.",
+    "Aura Mainboard": "onboard LEDs and 12V headers",
+    "Aura Addressable 1": "ARGB header 1",
+    "Aura Addressable 2": "ARGB header 2 (AIO pump and fans)"
+  },
+  "HyperX Predator RGB": {
+    "_note": "Kingston HyperX Fury RGB DDR4 kit (OpenRGB's label says Predator)."
+  },
+  "MSI GeForce GTX 1080 Gaming X": {
+    "_note": "Custom OpenRGB driver (I2C 0x38). The MSI logo is full RGB; the underside accent LEDs are red-only and can only be switched on or off. The chip cannot be read back, so the shown colour is what was last sent."
+  }
+}
