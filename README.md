@@ -9,6 +9,11 @@
   <img src="docs/screenshot.jpg" alt="RGB Panel" width="880">
 </p>
 
+<p align="center">
+  <img src="docs/app.jpg" alt="RGB Panel desktop app with the effect presets" width="880"><br>
+  <sub>The desktop app: every effect preset, then a card per device.</sub>
+</p>
+
 ## What it does
 
 - **One surface for all devices.** Every device OpenRGB detects shows up as a card with its hardware
