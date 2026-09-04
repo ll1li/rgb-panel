@@ -4,7 +4,7 @@ from PyInstaller.utils.hooks import collect_all
 
 import glob
 datas = [("panel.html", "."), ("labels.json", "."), ("app.ico", ".")]
-datas += [(f"music/{n}.{ext}", "music") for n in ("sweden", "soviet", "america", "police") for ext in ("wav", "source.txt")
+datas += [(f"music/{n}.{ext}", "music") for n in ("sweden", "soviet", "america", "police", "india", "syria", "israel", "france") for ext in ("wav", "source.txt")
           if glob.glob(f"music/{n}.{ext}")]
 binaries = []
 hiddenimports = ["openrgb", "openrgb.utils", "openrgb.orgb", "openrgb.network", "effects", "panel", "anthem"]

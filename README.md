@@ -18,11 +18,11 @@
   a software one per device: it remembers the colours you asked for and sends them dimmed, and on
   animated hardware modes it dims the mode's own colour so the device never drops out of its
   animation.
-- **18 software effects** rendered by the panel and streamed per LED across all devices at once, so a
+- **22 software effects** rendered by the panel and streamed per LED across all devices at once, so a
   wave travels from the RAM across the board to the GPU logo and the mousepad. Rainbow wave, Plasma,
   Breathe, Comet, Cyberpunk, Aurora, Ocean, Lava, Fire, Candle, Matrix, Disco, Police, Thunderstorm,
-  Soft strobe, plus three that come with sound.
-- **Music presets.** Sweden, Soviet Union, America and Police play a recording and make the lights
+  Soft strobe, plus seven that come with sound.
+- **Music presets.** Sweden, Soviet Union, America, India, Syria, Israel, France and Police play a recording and make the lights
   react to its loudness envelope. Recordings are fetched by `fetch_music.py`; a small stdlib
   synthesizer plays the Swedish anthem when no recording is present.
 - **Profiles and persistence.** OpenRGB profiles from the panel, a startup profile so everything
@@ -94,7 +94,8 @@ accent LEDs on the underside (they ignore colour and only react to on/off), mask
 visible. The driver sends the Off command for a group set to black, which is how the underside is
 switched. The panel shows an "underside" selector (auto/on/off): in auto it is lit only when the
 card looks reddish, for a static colour by the logo colour, for an effect by sampling its first
-seconds once at start so it never flickers.
+seconds once at start so it never flickers, unless the effect pins the answer itself (India's saffron
+would otherwise count as red).
 
 Rebuild: `build\build.cmd` mirrors OpenRGB's `scripts\build-windows.bat` (Qt 5.15 msvc2019_64,
 VS Build Tools, jom, windeployqt) and applies `build\gtx1080-gaming-x.patch` on OpenRGB

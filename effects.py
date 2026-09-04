@@ -307,6 +307,120 @@ def fx_america(t, layout, speed, rng, _state={}):
     return out
 
 
+def fx_india(t, layout, speed, rng, _state={}):
+    """Saffron, white and green bands drifting by; the chakra's navy blue spins up and everything
+    flares white when the voice on the clip loses it."""
+    shift = (t * (0.05 + speed * 0.4)) % 1.0
+    hit = music_hit(t)
+    lvl = music_level(t)
+    flash = _state.get("flash", 0.0)
+    if hit > 0.45:
+        flash = max(flash, hit)
+    _state["flash"] = flash * 0.85
+    spin = (t * (1.5 + lvl * 6)) % 1.0
+    out = []
+    for l in layout:
+        k = (l.pos + shift) % 1.0
+        if k < 0.4:
+            base = (1.0, 0.42, 0.0)          # saffron, kept bold
+        elif k < 0.6:
+            # a narrow, softened white band so it never washes out the colours, chakra navy on top
+            wheel = 0.5 + 0.5 * math.cos((k - 0.4) / 0.2 * math.tau * 2 - spin * math.tau)
+            base = lerp((0.7, 0.7, 0.7), (0.0, 0.0, 0.75), wheel * (0.5 + 0.5 * lvl))
+        else:
+            base = (0.0, 0.7, 0.0)           # green, kept bold
+        base = scale(base, 0.6 + 0.4 * max(hit, lvl * 0.7))
+        out.append(lerp(base, (1.0, 0.5, 0.0), flash * 0.5))   # the rage flares saffron, not white
+    return out
+
+
+fx_india.underside = False   # saffron would pass the "reddish" test; the red-only underside stays dark
+
+
+def fx_syria(t, layout, speed, rng):
+    """Red, white and black bands of the Assad-era flag, the two green stars sweeping through the white
+    band and pulsing with the song; the black band stays dark so the stars really stand out."""
+    shift = (t * (0.05 + speed * 0.4)) % 1.0
+    hit = music_hit(t)
+    lvl = music_level(t)
+    star_pos = (t * (0.3 + lvl * 1.2)) % 1.0
+    out = []
+    for l in layout:
+        k = (l.pos + shift) % 1.0
+        if k < 0.34:
+            base = (1.0, 0.02, 0.0)          # red: no blue at all, LEDs turn it pink
+        elif k < 0.66:
+            base = (1.0, 1.0, 1.0)           # white with the two stars
+            u = (k - 0.34) / 0.32
+            star = 0.0
+            for centre in (star_pos, (star_pos + 0.5) % 1.0):
+                d = min(abs(u - centre), 1 - abs(u - centre))
+                star = max(star, math.exp(-d * d * 300))
+            base = lerp(base, (0.0, 0.85, 0.15), star * (0.6 + 0.4 * hit))
+        else:
+            base = (0.0, 0.0, 0.0)           # black: fully off, a faint level reads as purple on LEDs
+        out.append(scale(base, 0.55 + 0.45 * max(hit, lvl * 0.7)))
+    return out
+
+
+def fx_israel(t, layout, speed, rng, _state={}):
+    """White field with two blue stripes that step to the beat: every hit snaps the pattern a quarter
+    turn (with a short ease) so blue and white trade places on the music, plus a six-point star: six
+    deep-blue sparks spaced evenly around the rig that burst on the beat and fade between hits."""
+    hit = music_hit(t)
+    lvl = music_level(t)
+    beats = _state.get("beats", 0)
+    last = _state.get("last", -1.0)
+    if hit > 0.3 and t - last > 0.18:            # one step per onset, debounced
+        beats += 1
+        last = t
+        _state["beats"], _state["last"] = beats, last
+    ease = min(1.0, (t - last) / 0.12) if last >= 0 else 1.0
+    step = (beats - 1 + ease) * 0.25 if beats else 0.0
+    shift = (step + t * (0.01 + speed * 0.05)) % 1.0    # a slow drift between beats, and without music
+    burst = max(_state.get("burst", 0.0) * 0.9, hit)
+    _state["burst"] = burst
+    spin = (t * 0.05) % 1.0
+    out = []
+    for l in layout:
+        k = (l.pos + shift) % 1.0
+        stripe = 1.0 if (0.12 < k < 0.28 or 0.62 < k < 0.78) else 0.0
+        base = lerp((1.0, 1.0, 1.0), (0.0, 0.22, 0.72), stripe)
+        u = (l.pos + spin) % 1.0
+        d = min(abs(u * 6 - round(u * 6)), 1.0) / 6
+        star = math.exp(-d * d * 4000)
+        base = lerp(base, (0.0, 0.12, 0.9), star * (0.3 + 0.7 * burst))
+        out.append(scale(base, 0.55 + 0.45 * max(hit, lvl * 0.7)))
+    return out
+
+
+def fx_france(t, layout, speed, rng, _state={}):
+    """Blue, white and red bands waving past like the tricolour in wind, and on every beat the rig
+    twinkles gold the way the Eiffel Tower does on the hour."""
+    shift = (t * (0.05 + speed * 0.4)) % 1.0
+    hit = music_hit(t)
+    lvl = music_level(t)
+    sparks = _state.setdefault("sparks", {})
+    if hit > 0.35:
+        for _ in range(2 + int(hit * 6)):
+            sparks[rng.randrange(len(layout))] = t
+    out = []
+    for i, l in enumerate(layout):
+        wave = 0.04 * math.sin(l.pos * math.tau * 2 + t * 2.5)
+        k = (l.pos + shift + wave) % 1.0
+        base = (0.0, 0.2, 0.75) if k < 0.34 else ((1.0, 1.0, 1.0) if k < 0.66 else (1.0, 0.02, 0.0))
+        base = scale(base, 0.55 + 0.45 * max(hit, lvl * 0.7))
+        born = sparks.get(i)
+        if born is not None:
+            age = t - born
+            if age < 0.4:
+                base = lerp(base, (1.0, 0.85, 0.3), 1.0 - age * 2.5)
+            else:
+                sparks.pop(i, None)
+        out.append(base)
+    return out
+
+
 EFFECTS: dict[str, tuple[str, Callable]] = {
     "Rainbow wave": ("A rainbow that travels across every device", fx_rainbow),
     "Plasma": ("Classic swirling plasma colours", fx_plasma),
@@ -326,6 +440,10 @@ EFFECTS: dict[str, tuple[str, Callable]] = {
     "Sweden": ("Slow blue and yellow stripes, and the anthem plays", fx_sweden),
     "Soviet Union": ("Red with a marching gold band, 1944 anthem plays", fx_soviet),
     "America": ("Stars, stripes and fireworks to the only song that fits", fx_america),
+    "India": ("Saffron, white and green with a spinning chakra. Do NOT redeem the cards!", fx_india),
+    "Syria (Assad)": ("Red, white and black with two green stars, and the Bashar song plays", fx_syria),
+    "Israel": ("Blue and white stepping to the beat, with a six-point star bursting on it", fx_israel),
+    "France": ("The tricolour waving, with Eiffel Tower gold twinkles on the beat", fx_france),
 }
 
 

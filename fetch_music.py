@@ -27,10 +27,18 @@ TRACKS = {
     "america": "https://www.youtube.com/watch?v=MhQ5678cJU8",
     # an 11 s "Sir, get down!" meme clip for the Police preset
     "police": "https://www.youtube.com/shorts/tEk5DYudbwU",
+    # a 55 s scam-baiter rage clip ("do NOT redeem the cards") for the India preset; starts hot, no trim
+    "india": "https://www.youtube.com/shorts/csy5RHcXT6Y",
+    # a 39 s Bashar al-Assad song edit for the Syria (Assad) preset
+    "syria": "https://www.youtube.com/watch?v=4K00naoeNDE",
+    # "Hava Nagila" techno edit for the Israel preset; the drop worth hearing starts at 0:59
+    "israel": "https://www.youtube.com/watch?v=q3P-ExI3iXM",
+    # Tour de France "drinking raids" clip for the France preset; the good part starts at 0:46
+    "france": "https://www.youtube.com/watch?v=7UhT6-GntcY",
 }
 # seconds cut from the start of each download (found with faster-whisper word timestamps and the
 # loudness envelope); the untrimmed file is kept as <name>.orig.wav
-TRIMS = {"sweden": 65.4, "soviet": 8.3, "america": 32.0}
+TRIMS = {"sweden": 65.4, "soviet": 8.3, "america": 32.0, "israel": 59.0, "france": 46.0}
 MUSIC = Path(__file__).parent / "music"
 WINGET_LINKS = Path(os.environ.get("LOCALAPPDATA", "")) / "Microsoft" / "WinGet" / "Links"
 

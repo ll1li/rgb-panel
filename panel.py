@@ -249,12 +249,16 @@ def with_underside(device, cols: list[RGBColor]) -> list[RGBColor]:
 
 def decide_fx_underside(name: str, speed: int) -> bool:
     """Sample the effect's first seconds: the underside joins in when the card would look red a good
-    part of the time (Soviet, America, Police, Fire...), stays dark for Sweden, Ocean, Matrix..."""
+    part of the time (Soviet, America, Police, Fire...), stays dark for Sweden, Ocean, Matrix...
+    An effect can pin the answer with an `underside` attribute (India: orange is not red)."""
     import random
     desc_fn = effects.EFFECTS.get(name)
     if not desc_fn:
         return False
     fn = desc_fn[1]
+    pinned = getattr(fn, "underside", None)
+    if pinned is not None:
+        return bool(pinned)
     try:
         layout, _interval, uniform = _layout()
     except Exception:  # noqa: BLE001
@@ -326,6 +330,10 @@ MUSIC_FOR = {                   # effect -> recording in <program dir>\music (fe
     "Soviet Union": "soviet.wav",
     "America": "america.wav",
     "Police": "police.wav",
+    "India": "india.wav",
+    "Syria (Assad)": "syria.wav",
+    "Israel": "israel.wav",
+    "France": "france.wav",
 }
 MUSIC_NOTE = {"status": ""}
 
